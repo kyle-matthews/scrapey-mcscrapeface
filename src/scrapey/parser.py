@@ -12,7 +12,7 @@ def parse_pages(html_pages: list[str]) -> list[dict]:
 
 def _parse_page(html: str) -> list[dict]:
     soup = BeautifulSoup(html, "lxml")
-    items = soup.select("li.s-item")
+    items = soup.select("li.s-card")
 
     if not items:
         print("[parser] warning: no listing elements found — eBay markup may have changed", file=sys.stderr)
@@ -27,17 +27,16 @@ def _parse_page(html: str) -> list[dict]:
 
 
 def _extract(item) -> dict | None:
-    title_el = item.select_one(".s-item__title")
-    price_el = item.select_one(".s-item__price")
-    date_el = item.select_one(".s-item__ended-date") or item.select_one(".s-item__listingDate")
-    condition_el = item.select_one(".SECONDARY_INFO")
-    link_el = item.select_one("a.s-item__link")
+    title_el    = item.select_one("span.su-styled-text.primary.default")
+    price_el    = item.select_one("span.s-card__price")
+    date_el     = item.select_one("div.s-card__caption span.su-styled-text")
+    condition_el = item.select_one("div.s-card__subtitle")
+    link_el     = item.select_one("a.s-card__link")
 
     if not title_el or not price_el:
         return None
 
-    title = title_el.get_text(strip=True)
-    if title.lower() == "shop on ebay":
+    if title_el.get_text(strip=True).lower() == "shop on ebay":
         return None
 
     price_text = price_el.get_text(strip=True)
@@ -50,11 +49,17 @@ def _extract(item) -> dict | None:
     if price is None:
         return None
 
+    condition = ""
+    if condition_el:
+        # subtitle is e.g. "Parts only ·Lenovo" — take the part before " ·"
+        raw = condition_el.get_text(strip=True)
+        condition = raw.split(" ·")[0].strip()
+
     return {
-        "title": title,
+        "title": title_el.get_text(strip=True),
         "sold_price": price,
         "date_sold": date_el.get_text(strip=True) if date_el else "",
-        "condition": condition_el.get_text(strip=True) if condition_el else "",
+        "condition": condition,
         "url": link_el["href"] if link_el else "",
     }
 
