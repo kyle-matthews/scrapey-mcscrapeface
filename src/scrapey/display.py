@@ -54,6 +54,27 @@ def show_stats(term: str, stats: dict, listings: list[dict]) -> None:
     console.print(listings_table)
 
 
+def show_active_listings(listings: list[dict], median: float) -> None:
+    table = Table(box=box.SIMPLE_HEAVY, show_header=True, header_style="bold dim",
+                  title="[bold cyan]Current listings[/bold cyan]", title_justify="left")
+    table.add_column("Price", no_wrap=True, width=10)
+    table.add_column("Type", width=12)
+    table.add_column("Condition", width=16)
+    table.add_column("Title")
+
+    for item in listings:
+        colour = _price_colour(item["price"], median)
+        price_text = Text(f"£{item['price']:.2f}", style=f"bold {colour}")
+
+        title_text = Text(item["title"])
+        if item.get("url"):
+            title_text.stylize(f"link {item['url']}")
+
+        table.add_row(price_text, item["listing_type"], item["condition"], title_text)
+
+    console.print(table)
+
+
 def show_verdict(price: float, median: float, label: str, colour: str) -> None:
     pct = (price / median) * 100
 

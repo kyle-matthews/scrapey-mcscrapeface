@@ -20,8 +20,11 @@ USER_AGENT = (
 _stealth = Stealth()
 
 
-def scrape(search_term: str, pages: int, headed: bool = False) -> list[str]:
-    html_pages = []
+def scrape(search_term: str, pages: int, headed: bool = True) -> tuple[list[str], list[str]]:
+    """Returns (sold_html_pages, active_html_pages) from a single browser session."""
+    sold_pages = []
+    active_pages = []
+
     with sync_playwright() as p:
         browser = _launch(p, headed)
         context = browser.new_context(
@@ -33,73 +36,79 @@ def scrape(search_term: str, pages: int, headed: bool = False) -> list[str]:
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             },
         )
-
         _load_cookies(context)
-
         page = context.new_page()
         _stealth.apply_stealth_sync(page)
 
-        # Visit homepage first to warm up the session
         page.goto(HOME_URL, wait_until="load", timeout=30_000)
         time.sleep(random.uniform(1.0, 2.0))
 
+        # --- sold listings ---
         for n in range(1, pages + 1):
-            url = _build_url(search_term, n)
-            page.goto(url, wait_until="load", timeout=45_000)
-
-            title = page.title()
-
-            if "/signin" in page.url:
-                print(
-                    "[scraper] eBay requires login to view this data.\n"
-                    "          Run with --headed to log in manually.",
-                    file=sys.stderr,
-                )
+            html = _fetch_page(page, _build_sold_url(search_term, n), search_term, context, headed)
+            if html is None:
                 break
-
-            if "Access Denied" in title:
-                print(
-                    "[scraper] eBay blocked the request.\n"
-                    "          Try running with --headed for a visible browser window.",
-                    file=sys.stderr,
-                )
-                break
-
-            if "Pardon our interruption" in title:
-                if headed:
-                    print(
-                        "[scraper] eBay CAPTCHA detected — solve it in the browser window.",
-                        file=sys.stderr,
-                    )
-                    # Wait for the user to solve it and land on a real page
-                    try:
-                        page.wait_for_function(
-                            "!document.title.includes('Pardon our interruption')",
-                            timeout=120_000,
-                        )
-                        _save_cookies(context)
-                        # Re-navigate to where we actually wanted to go
-                        page.goto(url, wait_until="load", timeout=45_000)
-                    except Exception:
-                        print("[scraper] Timed out waiting for CAPTCHA solve.", file=sys.stderr)
-                        break
-                else:
-                    print(
-                        "[scraper] eBay CAPTCHA challenge — run with --headed to solve it once:\n"
-                        "          scrapey \"" + search_term + "\" --headed\n"
-                        "          Your session will be saved for future headless runs.",
-                        file=sys.stderr,
-                    )
-                    break
-
-            html_pages.append(page.content())
+            sold_pages.append(html)
             _save_cookies(context)
-
             if n < pages:
                 time.sleep(random.uniform(2.0, 4.0))
 
+        # --- active listings (1 page) ---
+        if sold_pages:
+            time.sleep(random.uniform(1.5, 3.0))
+            html = _fetch_page(page, _build_active_url(search_term), search_term, context, headed)
+            if html is not None:
+                active_pages.append(html)
+                _save_cookies(context)
+
         browser.close()
-    return html_pages
+
+    return sold_pages, active_pages
+
+
+def _fetch_page(page, url: str, search_term: str, context, headed: bool) -> str | None:
+    page.goto(url, wait_until="load", timeout=45_000)
+    title = page.title()
+
+    if "/signin" in page.url:
+        print(
+            "[scraper] eBay requires login to view this data.\n"
+            "          Run with --headed to log in manually.",
+            file=sys.stderr,
+        )
+        return None
+
+    if "Access Denied" in title:
+        print(
+            "[scraper] eBay blocked the request.\n"
+            "          Try running with --headed for a visible browser window.",
+            file=sys.stderr,
+        )
+        return None
+
+    if "Pardon our interruption" in title:
+        if headed:
+            print("[scraper] eBay CAPTCHA detected — solve it in the browser window.", file=sys.stderr)
+            try:
+                page.wait_for_function(
+                    "!document.title.includes('Pardon our interruption')",
+                    timeout=120_000,
+                )
+                _save_cookies(context)
+                page.goto(url, wait_until="load", timeout=45_000)
+            except Exception:
+                print("[scraper] Timed out waiting for CAPTCHA solve.", file=sys.stderr)
+                return None
+        else:
+            print(
+                f'[scraper] eBay CAPTCHA — run with --headed to solve it once:\n'
+                f'          scrapey "{search_term}" --headed\n'
+                f'          Your session will be saved for future headless runs.',
+                file=sys.stderr,
+            )
+            return None
+
+    return page.content()
 
 
 def _launch(p, headed: bool):
@@ -125,11 +134,9 @@ def _load_cookies(context) -> None:
             COOKIE_FILE.unlink(missing_ok=True)
 
 
-def _build_url(term: str, page: int) -> str:
-    params = {
-        "_nkw": term,
-        "LH_Complete": "1",
-        "LH_Sold": "1",
-        "_pgn": str(page),
-    }
-    return f"{BASE_URL}?{urllib.parse.urlencode(params)}"
+def _build_sold_url(term: str, page: int) -> str:
+    return f"{BASE_URL}?{urllib.parse.urlencode({'_nkw': term, 'LH_Complete': '1', 'LH_Sold': '1', '_pgn': str(page)})}"
+
+
+def _build_active_url(term: str) -> str:
+    return f"{BASE_URL}?{urllib.parse.urlencode({'_nkw': term})}"
