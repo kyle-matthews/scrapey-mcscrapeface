@@ -11,11 +11,11 @@ console = Console()
 @click.argument("search_term")
 @click.option("--price", type=float, default=None, help="Price you're considering paying (£)")
 @click.option("--pages", type=int, default=3, show_default=True, help="Number of pages to scrape (~60 results each)")
-@click.option("--headed", is_flag=True, default=False, help="Open a visible browser window (useful if blocked)")
-def main(search_term: str, price: float | None, pages: int, headed: bool) -> None:
+@click.option("--headless", is_flag=True, default=False, help="Run browser in headless mode (no window)")
+def main(search_term: str, price: float | None, pages: int, headless: bool) -> None:
     """Research sold prices on eBay UK for SEARCH_TERM."""
     with console.status(f"[cyan]Scraping {pages} page(s) for '{search_term}'…[/cyan]"):
-        html_pages = scraper.scrape(search_term, pages, headed=headed)
+        html_pages = scraper.scrape(search_term, pages, headed=not headless)
 
     if not html_pages:
         console.print("[red]No pages fetched — check your connection or eBay login requirement.[/red]")
