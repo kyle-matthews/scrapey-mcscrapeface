@@ -110,9 +110,9 @@ def _fetch_page(page, url: str, search_term: str, context, headed: bool) -> str 
                 return None
         else:
             print(
-                f'[scraper] eBay CAPTCHA — run with --headed to solve it once:\n'
-                f'          scrapey "{search_term}" --headed\n'
-                f'          Your session will be saved for future headless runs.',
+                f'[scraper] eBay CAPTCHA — run without --headless to solve it once:\n'
+                f'          scrapey "{search_term}"\n'
+                f'          Your session will be saved for future runs.',
                 file=sys.stderr,
             )
             return None
