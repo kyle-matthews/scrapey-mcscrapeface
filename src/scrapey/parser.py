@@ -2,6 +2,10 @@ import re
 import sys
 from bs4 import BeautifulSoup
 
+# Raised when eBay confirms there are no results, as opposed to a parsing failure.
+class NoResultsError(Exception):
+    pass
+
 
 def parse_pages(html_pages: list[str]) -> list[dict]:
     listings = []
@@ -22,6 +26,8 @@ def _parse_page(html: str) -> list[dict]:
     items = soup.select("li.s-card")
 
     if not items:
+        if _has_no_results(soup):
+            raise NoResultsError()
         print("[parser] warning: no listing elements found — eBay markup may have changed", file=sys.stderr)
         return []
 
@@ -118,6 +124,11 @@ def _extract_active(item) -> dict | None:
         "condition": condition,
         "url": link_el["href"] if link_el else "",
     }
+
+
+def _has_no_results(soup) -> bool:
+    text = soup.get_text()
+    return "No exact matches found" in text or "0 results for" in text
 
 
 def _parse_price(text: str) -> float | None:

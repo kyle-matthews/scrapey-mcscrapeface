@@ -34,12 +34,16 @@ def main(search_term: str, price: float | None, pages: int, sort_field: str | No
         console.print("[red]No pages fetched — check your connection or eBay login requirement.[/red]")
         sys.exit(1)
 
-    listings = parser.parse_pages(sold_pages)
+    try:
+        listings = parser.parse_pages(sold_pages)
+    except parser.NoResultsError:
+        console.print(f'[yellow]No sold listings found for "[bold]{search_term}[/bold]". Try broadening your search.[/yellow]')
+        sys.exit(0)
 
     if not listings:
         console.print(
             "[red]No listings parsed.[/red]\n"
-            "eBay may have changed its markup, blocked the request, or returned no results."
+            "eBay may have changed its markup or blocked the request."
         )
         sys.exit(1)
 
