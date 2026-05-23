@@ -20,7 +20,12 @@ USER_AGENT = (
 _stealth = Stealth()
 
 
-def scrape(search_term: str, pages: int, headed: bool = True) -> tuple[list[str], list[str]]:
+def scrape(
+    search_term: str,
+    pages: int,
+    headed: bool = True,
+    on_progress: callable = None,
+) -> tuple[list[str], list[str]]:
     """Returns (sold_html_pages, active_html_pages) from a single browser session."""
     sold_pages = []
     active_pages = []
@@ -45,6 +50,8 @@ def scrape(search_term: str, pages: int, headed: bool = True) -> tuple[list[str]
 
         # --- sold listings ---
         for n in range(1, pages + 1):
+            if on_progress:
+                on_progress(f"Sold listings — page {n}/{pages}")
             html = _fetch_page(page, _build_sold_url(search_term, n), search_term, context, headed)
             if html is None:
                 break
@@ -56,6 +63,8 @@ def scrape(search_term: str, pages: int, headed: bool = True) -> tuple[list[str]
         # --- active listings (1 page) ---
         if sold_pages:
             time.sleep(random.uniform(1.5, 3.0))
+            if on_progress:
+                on_progress("Active listings")
             html = _fetch_page(page, _build_active_url(search_term), search_term, context, headed)
             if html is not None:
                 active_pages.append(html)

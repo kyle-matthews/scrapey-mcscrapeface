@@ -68,10 +68,13 @@ def _extract(item) -> dict | None:
         raw = condition_el.get_text(strip=True)
         condition = raw.split(" ·")[0].strip()
 
+    raw_date = date_el.get_text(strip=True) if date_el else ""
+    date_sold = raw_date.removeprefix("Sold").strip()
+
     return {
         "title": title_el.get_text(strip=True),
         "sold_price": price,
-        "date_sold": date_el.get_text(strip=True) if date_el else "",
+        "date_sold": date_sold,
         "condition": condition,
         "url": link_el["href"] if link_el else "",
     }
@@ -124,6 +127,30 @@ def _extract_active(item) -> dict | None:
         "condition": condition,
         "url": link_el["href"] if link_el else "",
     }
+
+
+def filter_listings(
+    listings: list[dict],
+    excludes: tuple[str, ...] = (),
+    min_price: float | None = None,
+    max_price: float | None = None,
+    condition: str | None = None,
+) -> list[dict]:
+    result = []
+    for item in listings:
+        price = item.get("sold_price") or item.get("price") or 0
+        title = item.get("title", "").lower()
+
+        if any(ex.lower() in title for ex in excludes):
+            continue
+        if min_price is not None and price < min_price:
+            continue
+        if max_price is not None and price > max_price:
+            continue
+        if condition and condition.lower() not in item.get("condition", "").lower():
+            continue
+        result.append(item)
+    return result
 
 
 def _has_no_results(soup) -> bool:

@@ -18,7 +18,7 @@ def _price_colour(price: float, median: float) -> str:
     return "red"
 
 
-def show_stats(term: str, stats: dict, listings: list[dict]) -> None:
+def show_stats(term: str, stats: dict, listings: list[dict], compact: bool = False) -> None:
     summary = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
     summary.add_column("Metric", style="dim")
     summary.add_column("Value", style="bold")
@@ -31,6 +31,9 @@ def show_stats(term: str, stats: dict, listings: list[dict]) -> None:
     summary.add_row("Results",str(stats["count"]))
 
     console.print(Panel(summary, title=f"[bold cyan]{term}[/bold cyan] — sold prices", border_style="cyan"))
+
+    if compact:
+        return
 
     median = stats["median"]
     listings_table = Table(box=box.SIMPLE_HEAVY, show_header=True, header_style="bold dim")
